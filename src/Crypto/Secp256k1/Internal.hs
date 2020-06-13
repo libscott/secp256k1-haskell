@@ -5,7 +5,7 @@
 {-|
 Module      : Crypto.Secp256k1.Internal
 License     : UNLICENSE
-Maintainer  : Jean-Pierre Rupp <jprupp@protonmail.ch>
+Maintainer  : Scott Sadler <id@scottsadler.de>
 Stability   : experimental
 Portability : POSIX
 
@@ -14,6 +14,7 @@ exposed for hacking and experimentation.
 -}
 module Crypto.Secp256k1.Internal where
 
+import           Data.Word             (Word8)
 import           Control.DeepSeq       (NFData)
 import           Control.Monad         (guard, unless)
 import           Data.ByteString       (ByteString)
@@ -52,7 +53,6 @@ data CompactSig =
 newtype RecSig65 = RecSig65 { getRecSig65 :: ShortByteString }
     deriving (Read, Show, Eq, Ord, Generic, NFData)
 
-#ifdef RECOVERY
 data CompactRecSig =
     CompactRecSig
         { getCompactRecSigR :: !ShortByteString
@@ -60,7 +60,6 @@ data CompactRecSig =
         , getCompactRecSigV :: !Word8
         }
     deriving (Show, Eq, Ord, Generic, NFData)
-#endif
 
 newtype Seed32 = Seed32 { getSeed32 :: ShortByteString }
     deriving (Read, Show, Eq, Ord, Generic, NFData)
@@ -173,7 +172,6 @@ instance Serialize CompactSig where
         Put.putShortByteString r
         Put.putShortByteString s
 
-#ifdef RECOVERY
 instance Storable RecSig65 where
     sizeOf _ = 65
     alignment _ = 1
@@ -212,7 +210,6 @@ instance Serialize CompactRecSig where
         Put.putShortByteString r
         Put.putShortByteString s
         Put.putWord8 v
-#endif
 
 instance Storable Msg32 where
     sizeOf _ = 32
@@ -459,7 +456,6 @@ foreign import ccall
     -> CInt -- ^ number of public keys
     -> IO Ret
 
-#ifdef RECOVERY
 foreign import ccall
     "secp256k1_recovery.h secp256k1_ecdsa_recoverable_signature_parse_compact"
     ecdsaRecoverableSignatureParseCompact
@@ -505,7 +501,6 @@ foreign import ccall
     -> Ptr RecSig65
     -> Ptr Msg32
     -> IO Ret
-#endif
 
 #ifdef SCHNORR
 foreign import ccall

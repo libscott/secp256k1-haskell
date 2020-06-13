@@ -1,15 +1,15 @@
-name: secp256k1-haskell
+name: secp256k1-recoverable
 version: 0.2.5
-synopsis: Bindings for secp256k1
-description: Sign and verify signatures using the secp256k1 library.
+synopsis: Bindings for secp256k1 with recovery enabled
+description: Secp256k1 supporting sign, verify and recovery
 category: Crypto
 author: Jean-Pierre Rupp
-maintainer: jprupp@protonmail.ch
+maintainer: id@scottsadler.de
 copyright: (c) 2017 Jean-Pierre Rupp
 license: MIT
 license-file: LICENSE
-github: haskoin/secp256k1-haskell.git
-homepage: http://github.com/haskoin/secp256k1-haskell#readme
+github: ssadler/secp256k1-recoverable.git
+homepage: http://github.com/ssadler/secp256k1-recoverable#readme
 extra-source-files:
   - CHANGELOG.md
   - README.md
@@ -23,19 +23,10 @@ dependencies:
   - hashable
   - QuickCheck
   - string-conversions
-when:
-  - condition: flag(ecdh)
-    cpp-options: -DECDH
-  - condition: flag(schnorr)
-    cpp-options: -DSCHNORR
-  - condition: flag(recovery)
-    cpp-options: -DRECOVERY
-  - condition: flag(negate)
-    cpp-options: -DNEGATE
 library:
   source-dirs: src
   generated-exposed-modules:
-    - Paths_secp256k1_haskell
+    - Paths_secp256k1_recoverable
   pkg-config-dependencies:
     - libsecp256k1
 tests:
@@ -51,24 +42,7 @@ tests:
           hspec-discover:hspec-discover
     dependencies:
       - hspec
-      - secp256k1-haskell
+      - secp256k1-recoverable
       - monad-par
       - mtl
       - HUnit
-flags:
-  negate:
-    description: "Enable tweak negate"
-    manual: true
-    default: false
-  ecdh:
-    description: "Enable (experimental) ECDH APIs"
-    manual: true
-    default: false
-  schnorr:
-    description: "Enable BIP-340 (Schnorr) APIs"
-    manual: true
-    default: false
-  recovery:
-    description: "Enable signature key recovery APIs"
-    manual: true
-    default: false

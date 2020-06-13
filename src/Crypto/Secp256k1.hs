@@ -4,7 +4,7 @@
 {-|
 Module      : Crypto.Secp256k1
 License     : UNLICENSE
-Maintainer  : Jean-Pierre Rupp <jprupp@protonmail.ch>
+Maintainer  : Scott Sadler <id@scottsadler.de>
 Stability   : experimental
 Portability : POSIX
 
@@ -12,7 +12,7 @@ Crytpographic functions from Bitcoin’s secp256k1 library.
 -}
 module Crypto.Secp256k1
     ( -- * Messages
-    Msg
+      Msg
     , msg
     , getMsg
 
@@ -39,7 +39,6 @@ module Crypto.Secp256k1
     , CompactSig(..)
     , exportCompactSig
     , importCompactSig
-#ifdef RECOVERY
     -- ** Recovery
     , RecSig
     , CompactRecSig(..)
@@ -48,7 +47,6 @@ module Crypto.Secp256k1
     , convertRecSig
     , signRecMsg
     , recover
-#endif
 
     -- * Addition & Multiplication
     , Tweak
@@ -91,6 +89,7 @@ import qualified Data.ByteString.Base16    as B16
 import           Data.ByteString.Short     (fromShort, toShort)
 import           Data.Hashable             (Hashable (..))
 import           Data.Maybe                (fromJust, fromMaybe, isJust)
+import           Data.Serialize            (decode, encode)
 import           Data.String               (IsString (..))
 import           Data.String.Conversions   (ConvertibleStrings, cs)
 import           Foreign                   (ForeignPtr, alloca,
@@ -185,7 +184,6 @@ instance Hashable Sig where
 instance Show Sig where
     showsPrec _ = shows . B16.encode . exportSig
 
-#ifdef RECOVERY
 recSigFromString :: String -> Maybe RecSig
 recSigFromString str = do
     bs <- decodeHex str
@@ -207,7 +205,6 @@ instance IsString RecSig where
 
 instance Show RecSig where
     showsPrec _ = shows . B16.encode . encode . exportCompactRecSig
-#endif
 
 instance Read SecKey where
     readPrec = parens $ do
@@ -248,10 +245,8 @@ instance Eq Msg where
 instance Eq Sig where
     fg1 == fg2 = exportCompactSig fg1 == exportCompactSig fg2
 
-#ifdef RECOVERY
 instance Eq RecSig where
     fg1 == fg2 = exportCompactRecSig fg1 == exportCompactRecSig fg2
-#endif
 
 instance Eq SecKey where
     fk1 == fk2 = getSecKey fk1 == getSecKey fk2
@@ -500,13 +495,12 @@ combinePubKeys pubs = unsafePerformIO $ pointers [] pubs $ \ps ->
     pointers ps (PubKey fp : pubs') f =
         withForeignPtr fp $ \p -> pointers (p:ps) pubs' f
 
-#ifdef RECOVERY
 -- | Parse a compact ECDSA signature (64 bytes + recovery id).
 importCompactRecSig :: CompactRecSig -> Maybe RecSig
 importCompactRecSig cr =
   if getCompactRecSigV cr `notElem` [0,1,2,3]
   then Nothing
-  else withContext $ \ctx -> alloca $ \pc -> do
+  else unsafePerformIO $ alloca $ \pc -> do
     let
       c = CompactSig (getCompactRecSigR cr) (getCompactRecSigS cr)
       recid = fromIntegral $ getCompactRecSigV cr
@@ -518,7 +512,7 @@ importCompactRecSig cr =
 
 -- | Serialize an ECDSA signature in compact format (64 bytes + recovery id).
 exportCompactRecSig :: RecSig -> CompactRecSig
-exportCompactRecSig (RecSig fg) = withContext $ \ctx ->
+exportCompactRecSig (RecSig fg) = unsafePerformIO $ do
     withForeignPtr fg $ \pg -> alloca $ \pc -> alloca $ \pr -> do
         ret <- ecdsaRecoverableSignatureSerializeCompact ctx pc pr pg
         unless (isSuccess ret) $ error "Could not obtain compact signature"
@@ -528,7 +522,7 @@ exportCompactRecSig (RecSig fg) = withContext $ \ctx ->
 
 -- | Convert a recoverable signature into a normal signature.
 convertRecSig :: RecSig -> Sig
-convertRecSig (RecSig frg) = withContext $ \ctx ->
+convertRecSig (RecSig frg) = unsafePerformIO $ do
     withForeignPtr frg $ \prg -> do
         fg <- mallocForeignPtr
         ret <- withForeignPtr fg $ \pg ->
@@ -539,7 +533,7 @@ convertRecSig (RecSig frg) = withContext $ \ctx ->
 
 -- | Create a recoverable ECDSA signature.
 signRecMsg :: SecKey -> Msg -> RecSig
-signRecMsg (SecKey fk) (Msg fm) = withContext $ \ctx ->
+signRecMsg (SecKey fk) (Msg fm) = unsafePerformIO $ do
     withForeignPtr fk $ \k -> withForeignPtr fm $ \m -> do
         fg <- mallocForeignPtr
         ret <- withForeignPtr fg $ \g ->
@@ -549,12 +543,11 @@ signRecMsg (SecKey fk) (Msg fm) = withContext $ \ctx ->
 
 -- | Recover an ECDSA public key from a signature.
 recover :: RecSig -> Msg -> Maybe PubKey
-recover (RecSig frg) (Msg fm) = withContext $ \ctx ->
+recover (RecSig frg) (Msg fm) = unsafePerformIO $ do
     withForeignPtr frg $ \prg -> withForeignPtr fm $ \pm -> do
         fp <- mallocForeignPtr
         ret <- withForeignPtr fp $ \pp -> ecdsaRecover ctx pp prg pm
         if isSuccess ret then return $ Just $ PubKey fp else return Nothing
-#endif
 
 #ifdef NEGATE
 tweakNegate :: Tweak -> Maybe Tweak
